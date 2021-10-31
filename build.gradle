@@ -1,7 +1,9 @@
 plugins {
+    id 'application'
     id 'org.jetbrains.intellij' version '1.2.1'
     id 'groovy'
     id 'java'
+    id 'com.google.protobuf' version '0.8.17'
 }
 
 group 'com.github.cgund98'
@@ -15,6 +17,12 @@ dependencies {
     implementation 'org.codehaus.groovy:groovy-all:3.0.5'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
+
+    implementation 'io.grpc:grpc-netty-shaded:1.41.0'
+    implementation 'io.grpc:grpc-protobuf:1.41.0'
+    implementation 'io.grpc:grpc-services:1.41.0'
+    implementation 'io.grpc:grpc-stub:1.41.0'
+    compileOnly 'org.apache.tomcat:annotations-api:6.0.53' // necessary for Java 9+
 }
 
 // See https://github.com/JetBrains/gradle-intellij-plugin/
@@ -28,4 +36,44 @@ patchPluginXml {
 }
 test {
     useJUnitPlatform()
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:3.17.3"
+    }
+    plugins {
+        grpc {
+            artifact = 'io.grpc:protoc-gen-grpc-java:1.41.0'
+        }
+    }
+    generateProtoTasks {
+        all()*.plugins {
+            grpc {}
+        }
+    }
+}
+
+// Inform IDEs like IntelliJ IDEA, Eclipse or NetBeans about the generated code.
+sourceSets {
+    main {
+        java {
+            srcDirs 'build/generated/source/proto/main/grpc'
+            srcDirs 'build/generated/source/proto/main/java'
+        }
+    }
+}
+
+startScripts.enabled = false
+
+task serversServer(type: CreateStartScripts) {
+    mainClassName = 'com.github.cgund98.messenger.service.ServersServer'
+    applicationName = 'servers-svc'
+    outputDir = new File(project.buildDir, 'tmp')
+    classpath = startScripts.classpath
+}
+
+applicationDistribution.into('bin') {
+    from(serversServer)
+    fileMode = 0755
 }

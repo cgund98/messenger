@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+// Java-specific options
+option java_multiple_files = true;
+option java_package = "com.github.cgund98.messenger.service";
+option java_outer_classname = "ServersProto";
+option objc_class_prefix = "MSG";
+
+package servers;
+
+// Request body for creating a new channel
+message CreateServerRequest {
+  string name = 1;
+  string ownerId = 2;
+}
+
+// Response payload for creating a new channel
+message CreateServerResponse {
+  string id = 1;
+  string ownerId = 2;
+  string name = 3;
+}
+
+// Servers gRPC service definition
+service ServersSvc {
+  rpc CreateServer(CreateServerRequest) returns (CreateServerResponse) {}
+}
