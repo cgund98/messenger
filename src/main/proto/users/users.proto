@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+// Java-specific options
+option java_multiple_files = true;
+option java_package = "com.github.cgund98.messenger.proto";
+option java_outer_classname = "UsersProto";
+option objc_class_prefix = "MSG";
+
+package users;
+
+message User {
+  int32 id = 1;
+  string username = 2;
+}
+
+// Request body for creating a new user
+message CreateUserRequest {
+  string username = 1;
+}
+
+// Response payload for creating a new user
+message CreateUserResponse {
+  string username = 2;
+}
+
+// Request body for listing all users
+message ListUsersRequest {}
+
+// Response payload for listing all users
+message ListUsersResponse {
+  repeated User users = 1;
+}
+
+// Request body for fetching one user by its ID
+message GetUserRequest {
+  int32 id = 1;
+}
+
+// Users gRPC service definition
+service UsersSvc {
+  rpc CreateUser(CreateUserRequest) returns (User) {}
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse) {}
+  rpc GetUser(GetUserRequest) returns (User) {}
+}

@@ -4,6 +4,7 @@ plugins {
     id 'groovy'
     id 'java'
     id 'com.google.protobuf' version '0.8.17'
+    id "io.freefair.lombok" version "6.2.0"
 }
 
 group 'com.github.cgund98'
@@ -23,6 +24,8 @@ dependencies {
     implementation 'io.grpc:grpc-services:1.41.0'
     implementation 'io.grpc:grpc-stub:1.41.0'
     compileOnly 'org.apache.tomcat:annotations-api:6.0.53' // necessary for Java 9+
+
+    implementation 'org.postgresql:postgresql:42.3.1'
 }
 
 // See https://github.com/JetBrains/gradle-intellij-plugin/
@@ -54,6 +57,7 @@ protobuf {
     }
 }
 
+
 // Inform IDEs like IntelliJ IDEA, Eclipse or NetBeans about the generated code.
 sourceSets {
     main {
@@ -66,14 +70,22 @@ sourceSets {
 
 startScripts.enabled = false
 
-task serversServer(type: CreateStartScripts) {
-    mainClassName = 'com.github.cgund98.messenger.service.ServersServer'
-    applicationName = 'servers-svc'
+//task serversServer(type: CreateStartScripts) {
+//    mainClassName = 'com.github.cgund98.messenger.service.ServersServer'
+//    applicationName = 'servers-svc'
+//    outputDir = new File(project.buildDir, 'tmp')
+//    classpath = startScripts.classpath
+//}
+
+task usersServer(type: CreateStartScripts) {
+    mainClassName = 'com.github.cgund98.messenger.service.UsersServer'
+    applicationName = 'users-svc'
     outputDir = new File(project.buildDir, 'tmp')
     classpath = startScripts.classpath
 }
 
 applicationDistribution.into('bin') {
-    from(serversServer)
+//    from(serversServer)
+    from(usersServer)
     fileMode = 0755
 }
