@@ -8,10 +8,14 @@ public class UserEntity {
   private final Timestamp createdAt;
   private String username;
 
-  public UserEntity(int id, String username, Timestamp createdAt) {
-    this.id = id;
-    this.username = username;
-    this.createdAt = createdAt;
+  private UserEntity(Builder builder) {
+    this.id = builder.id;
+    this.username = builder.username;
+    this.createdAt = builder.createdAt;
+  }
+
+  public static Builder newBuilder(int id) {
+    return new Builder(id);
   }
 
   public int getId() {
@@ -28,5 +32,30 @@ public class UserEntity {
 
   public void setUsername(String username) {
     this.username = username;
+  }
+
+  /** Builder helper class */
+  public static class Builder {
+    private final int id;
+    private Timestamp createdAt;
+    private String username;
+
+    public Builder(int id) {
+      this.id = id;
+    }
+
+    public Builder setCreatedAt(Timestamp createdAt) {
+      this.createdAt = createdAt;
+      return this;
+    }
+
+    public Builder setUsername(String username) {
+      this.username = username;
+      return this;
+    }
+
+    public UserEntity build() {
+      return new UserEntity(this);
+    }
   }
 }

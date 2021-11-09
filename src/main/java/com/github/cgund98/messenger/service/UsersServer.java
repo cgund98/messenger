@@ -152,6 +152,62 @@ public class UsersServer {
       responseObserver.onCompleted();
     }
 
+    /** gRPC endpoint for updating a user */
+    @Override
+    public void updateUser(UpdateUserRequest req, StreamObserver<User> responseObserver) {
+
+      // Ensure there is at least one field to update
+      if (req.getUsername().equals("")) {
+        com.google.rpc.Status status =
+            com.google.rpc.Status.newBuilder()
+                .setCode(com.google.rpc.Code.INVALID_ARGUMENT.getNumber())
+                .setMessage("Must specify at least one field to update.")
+                .build();
+        responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+        return;
+      }
+
+      UserEntity user;
+      try {
+        // Get current persisted object
+        user = userRepository.getById(req.getId());
+
+        // Update username
+        if (!req.getUsername().equals("")) {
+          user.setUsername(req.getUsername());
+        }
+
+        // Persist changes
+        user = userRepository.save(user);
+
+      } catch (NotFoundException e) {
+        // No user found with requested ID
+        com.google.rpc.Status status =
+            com.google.rpc.Status.newBuilder()
+                .setCode(com.google.rpc.Code.NOT_FOUND.getNumber())
+                .setMessage(String.format("No user found with ID `%d`", req.getId()))
+                .build();
+        responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+        return;
+
+      } catch (SQLException e) {
+        // Unknown SQL error
+        logger.severe(e.getMessage());
+        com.google.rpc.Status status =
+            com.google.rpc.Status.newBuilder()
+                .setCode(com.google.rpc.Code.INTERNAL.getNumber())
+                .build();
+        responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+        return;
+      }
+
+      // Return response
+      User response = User.newBuilder().setId(user.getId()).setUsername(user.getUsername()).build();
+
+      responseObserver.onNext(response);
+      responseObserver.onCompleted();
+    }
+
     /**
      * gRPC endpoint for creating a new User
      *

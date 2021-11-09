@@ -57,15 +57,17 @@ public class UserRepository {
       throw new SQLException("no returned result");
     }
 
-    return new UserEntity(
-        result.getInt("id"), result.getString("username"), result.getTimestamp("created_at"));
+    return UserEntity.newBuilder(result.getInt("id"))
+        .setUsername(result.getString("username"))
+        .setCreatedAt(result.getTimestamp("created_at"))
+        .build();
   }
 
   /**
    * Get a single User by their ID
    *
    * @param id - user ID
-   * @return
+   * @return - found user object
    * @throws NotFoundException - no user found with specified user ID
    * @throws SQLException - error while running SQL query
    */
@@ -83,8 +85,10 @@ public class UserRepository {
       throw new NotFoundException("no returned result");
     }
 
-    return new UserEntity(
-        result.getInt("id"), result.getString("username"), result.getTimestamp("created_at"));
+    return UserEntity.newBuilder(result.getInt("id"))
+        .setUsername(result.getString("username"))
+        .setCreatedAt(result.getTimestamp("created_at"))
+        .build();
   }
 
   /**
@@ -102,17 +106,48 @@ public class UserRepository {
     ResultSet result = stmt.executeQuery(sql);
 
     // Process result
-    ArrayList<UserEntity> users = new ArrayList<UserEntity>();
+    ArrayList<UserEntity> users = new ArrayList<>();
     while (result.next()) {
       // Read query results into UserEntity
       UserEntity user =
-          new UserEntity(
-              result.getInt("id"), result.getString("username"), result.getTimestamp("created_at"));
+          UserEntity.newBuilder(result.getInt("id"))
+              .setUsername(result.getString("username"))
+              .setCreatedAt(result.getTimestamp("created_at"))
+              .build();
 
       // Append to list
       users.add(user);
     }
 
     return users;
+  }
+
+  /**
+   * Persist a user object in the database
+   *
+   * @param user - Object to persist
+   * @return - updated object persisted in database
+   * @throws NotFoundException - no user found with specified user ID
+   * @throws SQLException - error while running SQL query
+   */
+  public UserEntity save(UserEntity user) throws NotFoundException, SQLException {
+    // Prepare query
+    String sql = "UPDATE users SET username = ? WHERE id = ? RETURNING id, username, created_at";
+    PreparedStatement stmt = conn.prepareStatement(sql);
+    stmt.setString(1, user.getUsername());
+    stmt.setInt(2, user.getId());
+
+    // Execute query
+    ResultSet result = stmt.executeQuery();
+
+    // Raise exception if query results are empty
+    if (!result.next()) {
+      throw new NotFoundException("no returned result");
+    }
+
+    return UserEntity.newBuilder(result.getInt("id"))
+        .setUsername(result.getString("username"))
+        .setCreatedAt(result.getTimestamp("created_at"))
+        .build();
   }
 }

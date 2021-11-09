@@ -38,7 +38,8 @@ message GetUserRequest {
 
 // Request body for updating a user
 message UpdateUserRequest {
-  optional string username = 1;
+  int32 id = 1;
+  optional string username = 2;
 }
 
 // Users gRPC service definition
