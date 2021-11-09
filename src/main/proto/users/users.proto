@@ -36,9 +36,15 @@ message GetUserRequest {
   int32 id = 1;
 }
 
+// Request body for updating a user
+message UpdateUserRequest {
+  optional string username = 1;
+}
+
 // Users gRPC service definition
 service UsersSvc {
   rpc CreateUser(CreateUserRequest) returns (User) {}
   rpc ListUsers(ListUsersRequest) returns (ListUsersResponse) {}
   rpc GetUser(GetUserRequest) returns (User) {}
+  rpc UpdateUser(UpdateUserRequest) returns (User) {}
 }

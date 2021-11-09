@@ -2,10 +2,7 @@ package com.github.cgund98.messenger.service;
 
 import com.github.cgund98.messenger.entities.UserEntity;
 import com.github.cgund98.messenger.exceptions.NotFoundException;
-import com.github.cgund98.messenger.proto.CreateUserRequest;
-import com.github.cgund98.messenger.proto.GetUserRequest;
-import com.github.cgund98.messenger.proto.User;
-import com.github.cgund98.messenger.proto.UsersSvcGrpc;
+import com.github.cgund98.messenger.proto.*;
 import com.github.cgund98.messenger.repository.PostgresConnection;
 import com.github.cgund98.messenger.repository.UserRepository;
 import io.grpc.Server;
@@ -16,6 +13,7 @@ import io.grpc.stub.StreamObserver;
 
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
@@ -112,6 +110,46 @@ public class UsersServer {
 
     public UsersSvcImpl(UserRepository userRepository) {
       this.userRepository = userRepository;
+    }
+
+    /**
+     * gRPC endpoint for listing all Users
+     *
+     * @param req - Request payload
+     * @param responseObserver - Response
+     */
+    @Override
+    public void listUsers(
+        ListUsersRequest req, StreamObserver<ListUsersResponse> responseObserver) {
+
+      List<UserEntity> users;
+
+      try {
+        // Make query
+        users = userRepository.getAll();
+
+      } catch (SQLException e) {
+        // Unknown SQL error
+        logger.severe(e.getMessage());
+        com.google.rpc.Status status =
+            com.google.rpc.Status.newBuilder()
+                .setCode(com.google.rpc.Code.INTERNAL.getNumber())
+                .build();
+        responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+        return;
+      }
+
+      // Build response from list of users
+      ListUsersResponse.Builder responseBuilder = ListUsersResponse.newBuilder();
+      users.forEach(
+          (userEnt) -> {
+            User user =
+                User.newBuilder().setId(userEnt.getId()).setUsername(userEnt.getUsername()).build();
+            responseBuilder.addUsers(user);
+          });
+
+      responseObserver.onNext(responseBuilder.build());
+      responseObserver.onCompleted();
     }
 
     /**

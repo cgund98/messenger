@@ -2,13 +2,18 @@ package com.github.cgund98.messenger.repository;
 
 import com.github.cgund98.messenger.entities.UserEntity;
 import com.github.cgund98.messenger.exceptions.NotFoundException;
+import com.github.cgund98.messenger.service.UsersServer;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Logger;
 
 public class UserRepository {
+  private static final Logger logger = Logger.getLogger(UsersServer.class.getName());
   final PostgresConnection conn;
 
   /**
@@ -22,6 +27,7 @@ public class UserRepository {
   }
 
   private void createTable() throws SQLException {
+    logger.info("Creating users table in PostgreSQL if it does not currently exist...");
     Statement stmt = conn.createStatement();
     String sql =
         "CREATE TABLE IF NOT EXISTS users(\n"
@@ -35,7 +41,7 @@ public class UserRepository {
    * Create a new User object in the database
    *
    * @param username - Username belonging to specific user
-   * @throws SQLException
+   * @throws SQLException - error while running SQL query
    */
   public UserEntity create(String username) throws SQLException {
     // Prepare query
@@ -55,6 +61,14 @@ public class UserRepository {
         result.getInt("id"), result.getString("username"), result.getTimestamp("created_at"));
   }
 
+  /**
+   * Get a single User by their ID
+   *
+   * @param id - user ID
+   * @return
+   * @throws NotFoundException - no user found with specified user ID
+   * @throws SQLException - error while running SQL query
+   */
   public UserEntity getById(Integer id) throws NotFoundException, SQLException {
     // Prepare query
     String sql = "SELECT id, username, created_at FROM users WHERE id = ?";
@@ -64,12 +78,41 @@ public class UserRepository {
     // Execute query
     ResultSet result = stmt.executeQuery();
 
-    // Process result
+    // Raise exception if query results are empty
     if (!result.next()) {
       throw new NotFoundException("no returned result");
     }
 
     return new UserEntity(
         result.getInt("id"), result.getString("username"), result.getTimestamp("created_at"));
+  }
+
+  /**
+   * Return a list of all users
+   *
+   * @return - list of users
+   * @throws SQLException - error while running SQL query
+   */
+  public List<UserEntity> getAll() throws SQLException {
+    // Prepare query
+    String sql = "SELECT id, username, created_at FROM users";
+    Statement stmt = conn.createStatement();
+
+    // Execute query
+    ResultSet result = stmt.executeQuery(sql);
+
+    // Process result
+    ArrayList<UserEntity> users = new ArrayList<UserEntity>();
+    while (result.next()) {
+      // Read query results into UserEntity
+      UserEntity user =
+          new UserEntity(
+              result.getInt("id"), result.getString("username"), result.getTimestamp("created_at"));
+
+      // Append to list
+      users.add(user);
+    }
+
+    return users;
   }
 }
