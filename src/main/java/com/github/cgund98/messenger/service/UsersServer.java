@@ -1,5 +1,6 @@
 package com.github.cgund98.messenger.service;
 
+import com.github.cgund98.messenger.auth.JwtIssuer;
 import com.github.cgund98.messenger.entities.UserEntity;
 import com.github.cgund98.messenger.exceptions.NotFoundException;
 import com.github.cgund98.messenger.proto.*;
@@ -26,7 +27,7 @@ public class UsersServer {
   /**
    * Launch the server from the command line.
    *
-   * @param args
+   * @param args - Command line arguments
    */
   public static void main(String[] args) throws IOException, InterruptedException {
     final UsersServer server = new UsersServer();
@@ -52,29 +53,30 @@ public class UsersServer {
       return;
     }
 
+    JwtIssuer issuer = new JwtIssuer();
+    UsersSvcImpl svc = new UsersSvcImpl(userRepository, issuer);
+
     // Start gRPC server
     int port = 8000;
     server =
         ServerBuilder.forPort(port)
-            .addService(new UsersSvcImpl(userRepository))
+            .addService(svc)
             .addService(ProtoReflectionService.newInstance())
             .build()
             .start();
     logger.info("Server started, listening on : " + port);
     Runtime.getRuntime()
         .addShutdownHook(
-            new Thread() {
-              @Override
-              public void run() {
-                System.err.println("*** shutting down gRPC server since JVM is shutting down");
-                try {
-                  UsersServer.this.stop();
-                } catch (InterruptedException e) {
-                  e.printStackTrace(System.err);
-                }
-                System.err.println("*** server stopped");
-              }
-            });
+            new Thread(
+                () -> {
+                  System.err.println("*** shutting down gRPC server since JVM is shutting down");
+                  try {
+                    UsersServer.this.stop();
+                  } catch (InterruptedException e) {
+                    e.printStackTrace(System.err);
+                  }
+                  System.err.println("*** server stopped");
+                }));
   }
 
   private void stop() throws InterruptedException {
@@ -95,7 +97,7 @@ public class UsersServer {
   /**
    * Await termination on the main thread since the grpc library uses daemon thread.
    *
-   * @throws InterruptedException
+   * @throws InterruptedException - Keyboard Interrupt
    */
   private void blockUntilShutdown() throws InterruptedException {
     if (server != null) {
@@ -107,9 +109,11 @@ public class UsersServer {
   public static class UsersSvcImpl extends UsersSvcGrpc.UsersSvcImplBase {
 
     private final UserRepository userRepository;
+    private final JwtIssuer issuer;
 
-    public UsersSvcImpl(UserRepository userRepository) {
+    public UsersSvcImpl(UserRepository userRepository, JwtIssuer issuer) {
       this.userRepository = userRepository;
+      this.issuer = issuer;
     }
 
     /**
@@ -212,7 +216,7 @@ public class UsersServer {
      * gRPC endpoint for creating a new User
      *
      * @param req - Request payload
-     * @param responseObserver - Response
+     * @param responseObserver - Response payload
      */
     @Override
     public void createUser(CreateUserRequest req, StreamObserver<User> responseObserver) {
@@ -231,7 +235,49 @@ public class UsersServer {
         return;
       }
 
+      // Return response
       User response = User.newBuilder().setId(user.getId()).setUsername(user.getUsername()).build();
+
+      responseObserver.onNext(response);
+      responseObserver.onCompleted();
+    }
+
+    /**
+     * Login a user and issue them a JWT.
+     *
+     * @param req - Request payload
+     * @param responseObserver - Response payload
+     */
+    @Override
+    public void login(LoginRequest req, StreamObserver<LoginResponse> responseObserver) {
+      String token;
+      try {
+        userRepository.getById(req.getId());
+        token = issuer.create(req.getId());
+
+      } catch (NotFoundException ex) {
+        // No user found with requested ID
+        com.google.rpc.Status status =
+            com.google.rpc.Status.newBuilder()
+                .setCode(com.google.rpc.Code.NOT_FOUND.getNumber())
+                .setMessage(String.format("No user found with ID `%d`", req.getId()))
+                .build();
+        responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+        return;
+
+      } catch (SQLException ex) {
+        // Unknown SQL error
+        logger.severe(ex.getMessage());
+        com.google.rpc.Status status =
+            com.google.rpc.Status.newBuilder()
+                .setCode(com.google.rpc.Code.INTERNAL.getNumber())
+                .build();
+        responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+        return;
+      }
+
+      // Return response
+      LoginResponse response = LoginResponse.newBuilder().setToken(token).build();
 
       responseObserver.onNext(response);
       responseObserver.onCompleted();
@@ -241,7 +287,7 @@ public class UsersServer {
      * gRPC endpoint for fetching a User by its ID
      *
      * @param req - Request payload
-     * @param responseObserver - Response
+     * @param responseObserver - Response payload
      */
     @Override
     public void getUser(GetUserRequest req, StreamObserver<User> responseObserver) {

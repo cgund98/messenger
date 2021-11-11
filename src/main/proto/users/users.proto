@@ -42,10 +42,23 @@ message UpdateUserRequest {
   optional string username = 2;
 }
 
+// Request body for logging in as a specific user.  Since this is an experimental project,
+// no passwords will be used to authenticate.
+message LoginRequest {
+  int32 id = 1;
+}
+
+// Response payload for logging in as a user.  Should contain a newly created JWT that will
+// be used to authenticate with all other services.
+message LoginResponse {
+  string token = 1; // JWT
+}
+
 // Users gRPC service definition
 service UsersSvc {
   rpc CreateUser(CreateUserRequest) returns (User) {}
   rpc ListUsers(ListUsersRequest) returns (ListUsersResponse) {}
   rpc GetUser(GetUserRequest) returns (User) {}
   rpc UpdateUser(UpdateUserRequest) returns (User) {}
+  rpc Login(LoginRequest) returns (LoginResponse) {}
 }
