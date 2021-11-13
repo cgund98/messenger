@@ -3,8 +3,9 @@ package com.github.cgund98.messenger.entities;
 import java.sql.Timestamp;
 
 public class UserEntity {
+  // Certain fields must be public so Oso can read them.
+  public final int id;
 
-  private final int id;
   private final Timestamp createdAt;
   private String username;
 

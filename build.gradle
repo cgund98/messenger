@@ -28,6 +28,8 @@ dependencies {
     implementation 'org.postgresql:postgresql:42.3.1'
 
     implementation 'com.auth0:java-jwt:3.18.2'
+
+    implementation 'com.osohq:oso:0.21.0'
 }
 
 // See https://github.com/JetBrains/gradle-intellij-plugin/

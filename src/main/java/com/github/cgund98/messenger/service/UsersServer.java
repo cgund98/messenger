@@ -1,6 +1,8 @@
 package com.github.cgund98.messenger.service;
 
+import com.github.cgund98.messenger.auth.Authorizer;
 import com.github.cgund98.messenger.auth.JwtIssuer;
+import com.github.cgund98.messenger.entities.ServerEntity;
 import com.github.cgund98.messenger.entities.UserEntity;
 import com.github.cgund98.messenger.exceptions.NotFoundException;
 import com.github.cgund98.messenger.proto.*;
@@ -54,7 +56,8 @@ public class UsersServer {
     }
 
     JwtIssuer issuer = new JwtIssuer();
-    UsersSvcImpl svc = new UsersSvcImpl(userRepository, issuer);
+    Authorizer authorizer = new Authorizer();
+    UsersSvcImpl svc = new UsersSvcImpl(userRepository, issuer, authorizer);
 
     // Start gRPC server
     int port = 8000;
@@ -110,10 +113,12 @@ public class UsersServer {
 
     private final UserRepository userRepository;
     private final JwtIssuer issuer;
+    private final Authorizer authorizer;
 
-    public UsersSvcImpl(UserRepository userRepository, JwtIssuer issuer) {
+    public UsersSvcImpl(UserRepository userRepository, JwtIssuer issuer, Authorizer authorizer) {
       this.userRepository = userRepository;
       this.issuer = issuer;
+      this.authorizer = authorizer;
     }
 
     /**
@@ -292,10 +297,18 @@ public class UsersServer {
     @Override
     public void getUser(GetUserRequest req, StreamObserver<User> responseObserver) {
 
+      ServerEntity server =
+          ServerEntity.newBuilder(1, req.getId()).setName("Test Server #1").build();
+
       UserEntity user;
       try {
         // Make query
         user = userRepository.getById(req.getId());
+        if (authorizer.authorize(user, "update", server)) {
+          logger.info("Authorized to act.");
+        } else {
+          logger.info("Not authorized to act.");
+        }
 
       } catch (NotFoundException e) {
         // No user found with requested ID
