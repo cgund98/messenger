@@ -1,5 +1,7 @@
 package com.github.cgund98.messenger.service;
 
+import com.auth0.jwt.exceptions.JWTDecodeException;
+import com.auth0.jwt.interfaces.DecodedJWT;
 import com.github.cgund98.messenger.auth.Authorizer;
 import com.github.cgund98.messenger.auth.JwtIssuer;
 import com.github.cgund98.messenger.entities.ServerEntity;
@@ -8,6 +10,8 @@ import com.github.cgund98.messenger.exceptions.NotFoundException;
 import com.github.cgund98.messenger.proto.*;
 import com.github.cgund98.messenger.repository.PostgresConnection;
 import com.github.cgund98.messenger.repository.UserRepository;
+import com.google.rpc.Code;
+import com.google.rpc.Status;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.protobuf.StatusProto;
@@ -140,10 +144,7 @@ public class UsersServer {
       } catch (SQLException e) {
         // Unknown SQL error
         logger.severe(e.getMessage());
-        com.google.rpc.Status status =
-            com.google.rpc.Status.newBuilder()
-                .setCode(com.google.rpc.Code.INTERNAL.getNumber())
-                .build();
+        Status status = Status.newBuilder().setCode(Code.INTERNAL.getNumber()).build();
         responseObserver.onError(StatusProto.toStatusRuntimeException(status));
         return;
       }
@@ -165,11 +166,41 @@ public class UsersServer {
     @Override
     public void updateUser(UpdateUserRequest req, StreamObserver<User> responseObserver) {
 
+      DecodedJWT decodedJwt;
+      try {
+        // Decode JWT
+        decodedJwt = issuer.decode(req.getToken());
+
+      } catch (JWTDecodeException ex) {
+        // Error decoding JWT
+        logger.severe(ex.getMessage());
+        Status status =
+            Status.newBuilder()
+                .setCode(Code.UNAUTHENTICATED.getNumber())
+                .setMessage(ex.getMessage())
+                .build();
+        responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+        return;
+      }
+
+      // A user can only modify themselves
+      logger.info(decodedJwt.getSubject() + " - " + req.getId());
+      if (!decodedJwt.getSubject().equals("" + req.getId())) {
+        Status status =
+            Status.newBuilder()
+                .setCode(Code.PERMISSION_DENIED.getNumber())
+                .setMessage(
+                    String.format("User not permitted to modify user with ID `%d`", req.getId()))
+                .build();
+        responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+        return;
+      }
+
       // Ensure there is at least one field to update
       if (req.getUsername().equals("")) {
-        com.google.rpc.Status status =
-            com.google.rpc.Status.newBuilder()
-                .setCode(com.google.rpc.Code.INVALID_ARGUMENT.getNumber())
+        Status status =
+            Status.newBuilder()
+                .setCode(Code.INVALID_ARGUMENT.getNumber())
                 .setMessage("Must specify at least one field to update.")
                 .build();
         responseObserver.onError(StatusProto.toStatusRuntimeException(status));
@@ -191,9 +222,9 @@ public class UsersServer {
 
       } catch (NotFoundException e) {
         // No user found with requested ID
-        com.google.rpc.Status status =
-            com.google.rpc.Status.newBuilder()
-                .setCode(com.google.rpc.Code.NOT_FOUND.getNumber())
+        Status status =
+            Status.newBuilder()
+                .setCode(Code.NOT_FOUND.getNumber())
                 .setMessage(String.format("No user found with ID `%d`", req.getId()))
                 .build();
         responseObserver.onError(StatusProto.toStatusRuntimeException(status));
@@ -202,10 +233,7 @@ public class UsersServer {
       } catch (SQLException e) {
         // Unknown SQL error
         logger.severe(e.getMessage());
-        com.google.rpc.Status status =
-            com.google.rpc.Status.newBuilder()
-                .setCode(com.google.rpc.Code.INTERNAL.getNumber())
-                .build();
+        Status status = Status.newBuilder().setCode(Code.INTERNAL.getNumber()).build();
         responseObserver.onError(StatusProto.toStatusRuntimeException(status));
         return;
       }
@@ -232,10 +260,7 @@ public class UsersServer {
       } catch (SQLException e) {
         // Unknown SQL error
         logger.severe(e.getMessage());
-        com.google.rpc.Status status =
-            com.google.rpc.Status.newBuilder()
-                .setCode(com.google.rpc.Code.INTERNAL.getNumber())
-                .build();
+        Status status = Status.newBuilder().setCode(Code.INTERNAL.getNumber()).build();
         responseObserver.onError(StatusProto.toStatusRuntimeException(status));
         return;
       }
@@ -262,9 +287,9 @@ public class UsersServer {
 
       } catch (NotFoundException ex) {
         // No user found with requested ID
-        com.google.rpc.Status status =
-            com.google.rpc.Status.newBuilder()
-                .setCode(com.google.rpc.Code.NOT_FOUND.getNumber())
+        Status status =
+            Status.newBuilder()
+                .setCode(Code.NOT_FOUND.getNumber())
                 .setMessage(String.format("No user found with ID `%d`", req.getId()))
                 .build();
         responseObserver.onError(StatusProto.toStatusRuntimeException(status));
@@ -273,10 +298,7 @@ public class UsersServer {
       } catch (SQLException ex) {
         // Unknown SQL error
         logger.severe(ex.getMessage());
-        com.google.rpc.Status status =
-            com.google.rpc.Status.newBuilder()
-                .setCode(com.google.rpc.Code.INTERNAL.getNumber())
-                .build();
+        Status status = Status.newBuilder().setCode(Code.INTERNAL.getNumber()).build();
         responseObserver.onError(StatusProto.toStatusRuntimeException(status));
         return;
       }
@@ -302,6 +324,9 @@ public class UsersServer {
 
       UserEntity user;
       try {
+        // Decode JWT
+        issuer.decode(req.getToken());
+
         // Make query
         user = userRepository.getById(req.getId());
         if (authorizer.authorize(user, "update", server)) {
@@ -310,22 +335,34 @@ public class UsersServer {
           logger.info("Not authorized to act.");
         }
 
-      } catch (NotFoundException e) {
+      } catch (NotFoundException ex) {
         // No user found with requested ID
-        com.google.rpc.Status status =
-            com.google.rpc.Status.newBuilder()
-                .setCode(com.google.rpc.Code.NOT_FOUND.getNumber())
+        Status status =
+            Status.newBuilder()
+                .setCode(Code.NOT_FOUND.getNumber())
                 .setMessage(String.format("No user found with ID `%d`", req.getId()))
                 .build();
         responseObserver.onError(StatusProto.toStatusRuntimeException(status));
         return;
 
-      } catch (SQLException e) {
+      } catch (SQLException ex) {
         // Unknown SQL error
-        logger.severe(e.getMessage());
-        com.google.rpc.Status status =
-            com.google.rpc.Status.newBuilder()
-                .setCode(com.google.rpc.Code.INTERNAL.getNumber())
+        logger.severe(ex.getMessage());
+        Status status =
+            Status.newBuilder()
+                .setCode(Code.INTERNAL.getNumber())
+                .setMessage(ex.getMessage())
+                .build();
+        responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+        return;
+
+      } catch (JWTDecodeException ex) {
+        // Error decoding JWT
+        logger.severe(ex.getMessage());
+        Status status =
+            Status.newBuilder()
+                .setCode(Code.UNAUTHENTICATED.getNumber())
+                .setMessage(ex.getMessage())
                 .build();
         responseObserver.onError(StatusProto.toStatusRuntimeException(status));
         return;

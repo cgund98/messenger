@@ -24,7 +24,9 @@ message CreateUserResponse {
 }
 
 // Request body for listing all users
-message ListUsersRequest {}
+message ListUsersRequest {
+  string token = 1;
+}
 
 // Response payload for listing all users
 message ListUsersResponse {
@@ -33,13 +35,15 @@ message ListUsersResponse {
 
 // Request body for fetching one user by its ID
 message GetUserRequest {
-  int32 id = 1;
+  string token = 1;
+  int32 id = 2;
 }
 
 // Request body for updating a user
 message UpdateUserRequest {
-  int32 id = 1;
-  optional string username = 2;
+  string token = 1;
+  int32 id = 2;
+  optional string username = 3;
 }
 
 // Request body for logging in as a specific user.  Since this is an experimental project,

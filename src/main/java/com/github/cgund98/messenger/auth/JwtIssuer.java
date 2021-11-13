@@ -25,7 +25,7 @@ public class JwtIssuer {
    */
   public String create(int userId) throws JWTCreationException {
     HashMap<String, Object> payloadClaims = new HashMap<>();
-    payloadClaims.put("sub", userId);
+    payloadClaims.put("sub", "" + userId);
     return JWT.create().withIssuer(issuer).withPayload(payloadClaims).sign(algo);
   }
 
