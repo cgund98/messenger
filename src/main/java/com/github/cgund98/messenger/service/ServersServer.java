@@ -6,6 +6,7 @@ import com.github.cgund98.messenger.auth.Authorizer;
 import com.github.cgund98.messenger.auth.JwtIssuer;
 import com.github.cgund98.messenger.entities.ServerEntity;
 import com.github.cgund98.messenger.entities.UserEntity;
+import com.github.cgund98.messenger.exceptions.NotFoundException;
 import com.github.cgund98.messenger.mapper.ServerMapper;
 import com.github.cgund98.messenger.mapper.UserMapper;
 import com.github.cgund98.messenger.proto.servers.*;
@@ -234,6 +235,16 @@ public class ServersServer {
           return;
         }
 
+      } catch (NotFoundException ex) {
+        // No user found with requested ID
+        Status status =
+            Status.newBuilder()
+                .setCode(Code.NOT_FOUND.getNumber())
+                .setMessage(String.format("No server found with ID `%d`", req.getId()))
+                .build();
+        responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+        return;
+
       } catch (Exception ex) {
         // Unknown error
         logger.severe(ex.getMessage());
@@ -249,6 +260,12 @@ public class ServersServer {
       responseObserver.onCompleted();
     }
 
+    /**
+     * gRPC endpoint for updating a server resource
+     *
+     * @param req - request body
+     * @param responseObserver - response payload
+     */
     @Override
     public void updateServer(
         UpdateServerRequest req, StreamObserver<MessageServer> responseObserver) {
@@ -281,6 +298,16 @@ public class ServersServer {
         // Persist changes
         server = serverRepository.save(server);
 
+      } catch (NotFoundException ex) {
+        // No user found with requested ID
+        Status status =
+            Status.newBuilder()
+                .setCode(Code.NOT_FOUND.getNumber())
+                .setMessage(String.format("No server found with ID `%d`", req.getId()))
+                .build();
+        responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+        return;
+
       } catch (Exception ex) {
         // Unknown error
         logger.severe(ex.getMessage());
@@ -291,6 +318,58 @@ public class ServersServer {
 
       // Return response
       MessageServer response = ServerMapper.entityToProto(server);
+
+      responseObserver.onNext(response);
+      responseObserver.onCompleted();
+    }
+
+    @Override
+    public void deleteServer(
+        DeleteServerRequest req, StreamObserver<DeleteServerResponse> responseObserver) {
+      ServerEntity server;
+      try {
+        // Parse and fetch user from JWT
+        UserEntity user = fetchUserFromToken(req.getToken());
+
+        // Get ID
+        server = serverRepository.getById(req.getId());
+
+        // Check that user has proper authorization
+        if (!authorizer.authorize(user, "delete", server)) {
+          Status status =
+              Status.newBuilder()
+                  .setCode(Code.PERMISSION_DENIED.getNumber())
+                  .setMessage(
+                      String.format(
+                          "User not permitted to update server with ID `%d`", req.getId()))
+                  .build();
+          responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+          return;
+        }
+
+        // Persist changes
+        serverRepository.delete(server);
+
+      } catch (NotFoundException ex) {
+        // No user found with requested ID
+        Status status =
+            Status.newBuilder()
+                .setCode(Code.NOT_FOUND.getNumber())
+                .setMessage(String.format("No server found with ID `%d`", req.getId()))
+                .build();
+        responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+        return;
+
+      } catch (Exception ex) {
+        // Unknown error
+        logger.severe(ex.getMessage());
+        Status status = Status.newBuilder().setCode(Code.INTERNAL.getNumber()).build();
+        responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+        return;
+      }
+
+      // Return response
+      DeleteServerResponse response = DeleteServerResponse.newBuilder().setId(req.getId()).build();
 
       responseObserver.onNext(response);
       responseObserver.onCompleted();

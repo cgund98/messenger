@@ -164,4 +164,24 @@ public class ServerRepository {
         .setCreatedAt(result.getTimestamp("created_at"))
         .build();
   }
+
+  /**
+   * Delete a server object in the database.
+   *
+   * @param server - Server object to delete
+   * @throws NotFoundException - thrown if no object exists with matching ID
+   * @throws SQLException - error while running SQL query
+   */
+  public void delete(ServerEntity server) throws NotFoundException, SQLException {
+    // Ensure that entity already exists in database first
+    getById(server.getId());
+
+    // Prepare query
+    String sql = "DELETE FROM servers WHERE server_id = ?";
+    PreparedStatement stmt = conn.prepareStatement(sql);
+    stmt.setInt(1, server.getId());
+
+    // Execute query
+    stmt.execute();
+  }
 }
