@@ -108,7 +108,7 @@ public class ServerRepository {
    */
   public List<ServerEntity> getAll() throws SQLException {
     // Prepare query
-    String sql = "SELECT server_id, owner_id, username, created_at FROM users";
+    String sql = "SELECT server_id, owner_id, name, created_at FROM servers";
     Statement stmt = conn.createStatement();
 
     // Execute query
@@ -127,6 +127,38 @@ public class ServerRepository {
               .build();
 
       // Append to list
+      servers.add(server);
+    }
+
+    return servers;
+  }
+
+  /**
+   * Fetch a list of Servers
+   *
+   * @param opts - search options
+   * @return - list of Server objects
+   * @throws SQLException - error while running SQL query
+   */
+  public List<ServerEntity> get(SearchOptions opts) throws SQLException {
+    // Prepare query
+    String sql = "SELECT server_id, owner_id, name, created_at FROM servers";
+    PreparedStatement stmt = opts.buildQuery(conn, sql);
+
+    // Execute query
+    ResultSet result = stmt.executeQuery();
+
+    // Process result
+    ArrayList<ServerEntity> servers = new ArrayList<>();
+    while (result.next()) {
+      int serverId = result.getInt("server_id");
+      int ownerId = result.getInt("owner_id");
+      ServerEntity server =
+          ServerEntity.newBuilder(serverId, ownerId)
+              .setName(result.getString("name"))
+              .setCreatedAt(result.getTimestamp("created_at"))
+              .build();
+
       servers.add(server);
     }
 
@@ -183,5 +215,42 @@ public class ServerRepository {
 
     // Execute query
     stmt.execute();
+  }
+
+  /** Helper class used for passing search parameters to the ServerRepository */
+  public static class SearchOptions {
+    private final String name;
+
+    public SearchOptions(String name) {
+      this.name = name;
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    // Build a PreparedStatement object from given search options
+    public PreparedStatement buildQuery(PostgresConnection conn, String sql) throws SQLException {
+      ArrayList<String> params = new ArrayList<>();
+      String whereSql = "";
+
+      // Create list of parameters
+      if (!name.equals("")) {
+        whereSql = whereSql + " lower(name) LIKE ?";
+        params.add("%" + name + "%");
+      }
+
+      if (!whereSql.equals("")) {
+        sql = sql + " WHERE " + whereSql;
+      }
+
+      // Append parameters to statement
+      PreparedStatement stmt = conn.prepareStatement(sql);
+      for (int i = 0; i < params.size(); i++) {
+        stmt.setString(i + 1, params.get(i));
+      }
+
+      return stmt;
+    }
   }
 }

@@ -25,6 +25,7 @@ import io.grpc.stub.StreamObserver;
 
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
@@ -110,7 +111,7 @@ public class ServersServer {
   /**
    * Await termination on the main thread since the grpc library uses daemon thread.
    *
-   * @throws InterruptedException
+   * @throws InterruptedException - keyboard interrupt
    */
   private void blockUntilShutdown() throws InterruptedException {
     if (server != null) {
@@ -235,6 +236,17 @@ public class ServersServer {
           return;
         }
 
+      } catch (JWTDecodeException ex) {
+        // Error decoding JWT
+        logger.severe(ex.getMessage());
+        Status status =
+            Status.newBuilder()
+                .setCode(Code.UNAUTHENTICATED.getNumber())
+                .setMessage(ex.getMessage())
+                .build();
+        responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+        return;
+
       } catch (NotFoundException ex) {
         // No user found with requested ID
         Status status =
@@ -298,6 +310,17 @@ public class ServersServer {
         // Persist changes
         server = serverRepository.save(server);
 
+      } catch (JWTDecodeException ex) {
+        // Error decoding JWT
+        logger.severe(ex.getMessage());
+        Status status =
+            Status.newBuilder()
+                .setCode(Code.UNAUTHENTICATED.getNumber())
+                .setMessage(ex.getMessage())
+                .build();
+        responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+        return;
+
       } catch (NotFoundException ex) {
         // No user found with requested ID
         Status status =
@@ -323,6 +346,12 @@ public class ServersServer {
       responseObserver.onCompleted();
     }
 
+    /**
+     * gRPC endpoint for deleting a server resource
+     *
+     * @param req - request body
+     * @param responseObserver - response payload
+     */
     @Override
     public void deleteServer(
         DeleteServerRequest req, StreamObserver<DeleteServerResponse> responseObserver) {
@@ -350,6 +379,17 @@ public class ServersServer {
         // Persist changes
         serverRepository.delete(server);
 
+      } catch (JWTDecodeException ex) {
+        // Error decoding JWT
+        logger.severe(ex.getMessage());
+        Status status =
+            Status.newBuilder()
+                .setCode(Code.UNAUTHENTICATED.getNumber())
+                .setMessage(ex.getMessage())
+                .build();
+        responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+        return;
+
       } catch (NotFoundException ex) {
         // No user found with requested ID
         Status status =
@@ -372,6 +412,58 @@ public class ServersServer {
       DeleteServerResponse response = DeleteServerResponse.newBuilder().setId(req.getId()).build();
 
       responseObserver.onNext(response);
+      responseObserver.onCompleted();
+    }
+
+    /**
+     * gRPC endpoint for listing available servers
+     *
+     * @param req - request body
+     * @param responseObserver - response payload
+     */
+    @Override
+    public void listServers(
+        ListServersRequest req, StreamObserver<ListServersResponse> responseObserver) {
+      List<ServerEntity> servers;
+      try {
+        // Parse and fetch user from JWT
+        UserEntity user = fetchUserFromToken(req.getToken());
+
+        // Query servers
+        ServerRepository.SearchOptions opts = new ServerRepository.SearchOptions(req.getName());
+        servers = serverRepository.get(opts);
+
+        // Only give back servers that a user is authorized to read
+        servers.removeIf(s -> !authorizer.authorize(user, "read", s));
+
+      } catch (JWTDecodeException ex) {
+        // Error decoding JWT
+        logger.severe(ex.getMessage());
+        Status status =
+            Status.newBuilder()
+                .setCode(Code.UNAUTHENTICATED.getNumber())
+                .setMessage(ex.getMessage())
+                .build();
+        responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+        return;
+
+      } catch (Exception ex) {
+        // Unknown error
+        ex.printStackTrace();
+        logger.severe(ex.getMessage());
+        Status status = Status.newBuilder().setCode(Code.INTERNAL.getNumber()).build();
+        responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+        return;
+      }
+
+      // Build response
+      ListServersResponse.Builder responseBuilder = ListServersResponse.newBuilder();
+      servers.forEach(
+          serverEnt -> {
+            responseBuilder.addServers(ServerMapper.entityToProto(serverEnt));
+          });
+
+      responseObserver.onNext(responseBuilder.build());
       responseObserver.onCompleted();
     }
   }
