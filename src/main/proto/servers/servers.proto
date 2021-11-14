@@ -2,26 +2,66 @@ syntax = "proto3";
 
 // Java-specific options
 option java_multiple_files = true;
-option java_package = "com.github.cgund98.messenger.proto";
+option java_package = "com.github.cgund98.messenger.proto.servers";
 option java_outer_classname = "ServersProto";
 option objc_class_prefix = "MSG";
 
 package servers;
 
-// Request body for creating a new channel
-message CreateServerRequest {
-  string name = 1;
-  int64 ownerId = 2;
+
+message MessageServer {
+  int32 id = 1;
+  int32 ownerId = 2;
+  string name = 3;
 }
 
-// Response payload for creating a new channel
-message CreateServerResponse {
-  int64 id = 1;
-  int64 ownerId = 2;
-  string name = 3;
+// Request body for creating a new server
+message CreateServerRequest {
+  string token = 1;
+  string name = 2;
+}
+
+// Request body for fetching a specific server by its ID
+message GetServerRequest {
+  string token = 1;
+  int32 id = 2;
+}
+
+// Request body for querying list of servers
+message ListServersRequest {
+  string token = 1;
+  optional int32 ownerId = 2;
+  optional string name = 3;
+}
+
+// Response payload for query a list of servers
+message ListServersResponse {
+  repeated MessageServer servers = 1;
+}
+
+// Request body for updating a server
+message UpdateServerRequest {
+  string token = 1;
+  int32 id = 2;
+  optional string name = 3;
+}
+
+// Request body for deleting a server
+message DeleteServerRequest {
+  string token = 1;
+  int32 id = 2;
+}
+
+// Response body for deleting a server
+message DeleteServerResponse {
+  int32 id = 1;
 }
 
 // Servers gRPC service definition
 service ServersSvc {
-  rpc CreateServer(CreateServerRequest) returns (CreateServerResponse) {}
+  rpc CreateServer(CreateServerRequest) returns (MessageServer) {}
+  rpc GetServer(GetServerRequest) returns (MessageServer) {}
+  rpc ListServers(ListServersRequest) returns (ListServersResponse) {}
+  rpc UpdateServer(UpdateServerRequest) returns (MessageServer) {}
+  rpc DeleteServer(DeleteServerRequest) returns (DeleteServerResponse) {}
 }

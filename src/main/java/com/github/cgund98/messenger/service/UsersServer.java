@@ -7,7 +7,8 @@ import com.github.cgund98.messenger.auth.JwtIssuer;
 import com.github.cgund98.messenger.entities.ServerEntity;
 import com.github.cgund98.messenger.entities.UserEntity;
 import com.github.cgund98.messenger.exceptions.NotFoundException;
-import com.github.cgund98.messenger.proto.*;
+import com.github.cgund98.messenger.mapper.UserMapper;
+import com.github.cgund98.messenger.proto.users.*;
 import com.github.cgund98.messenger.repository.PostgresConnection;
 import com.github.cgund98.messenger.repository.UserRepository;
 import com.google.rpc.Code;
@@ -153,8 +154,7 @@ public class UsersServer {
       ListUsersResponse.Builder responseBuilder = ListUsersResponse.newBuilder();
       users.forEach(
           (userEnt) -> {
-            User user =
-                User.newBuilder().setId(userEnt.getId()).setUsername(userEnt.getUsername()).build();
+            User user = UserMapper.entityToProto(userEnt);
             responseBuilder.addUsers(user);
           });
 
@@ -239,7 +239,7 @@ public class UsersServer {
       }
 
       // Return response
-      User response = User.newBuilder().setId(user.getId()).setUsername(user.getUsername()).build();
+      User response = UserMapper.entityToProto(user);
 
       responseObserver.onNext(response);
       responseObserver.onCompleted();
@@ -266,7 +266,7 @@ public class UsersServer {
       }
 
       // Return response
-      User response = User.newBuilder().setId(user.getId()).setUsername(user.getUsername()).build();
+      User response = UserMapper.entityToProto(user);
 
       responseObserver.onNext(response);
       responseObserver.onCompleted();
@@ -329,11 +329,6 @@ public class UsersServer {
 
         // Make query
         user = userRepository.getById(req.getId());
-        if (authorizer.authorize(user, "update", server)) {
-          logger.info("Authorized to act.");
-        } else {
-          logger.info("Not authorized to act.");
-        }
 
       } catch (NotFoundException ex) {
         // No user found with requested ID
@@ -369,7 +364,7 @@ public class UsersServer {
       }
 
       // Return response
-      User response = User.newBuilder().setId(user.getId()).setUsername(user.getUsername()).build();
+      User response = UserMapper.entityToProto(user);
 
       responseObserver.onNext(response);
       responseObserver.onCompleted();

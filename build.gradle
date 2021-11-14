@@ -74,12 +74,12 @@ sourceSets {
 
 startScripts.enabled = false
 
-//task serversServer(type: CreateStartScripts) {
-//    mainClassName = 'com.github.cgund98.messenger.service.ServersServer'
-//    applicationName = 'servers-svc'
-//    outputDir = new File(project.buildDir, 'tmp')
-//    classpath = startScripts.classpath
-//}
+task serversServer(type: CreateStartScripts) {
+    mainClassName = 'com.github.cgund98.messenger.service.ServersServer'
+    applicationName = 'servers-svc'
+    outputDir = new File(project.buildDir, 'tmp')
+    classpath = startScripts.classpath
+}
 
 task usersServer(type: CreateStartScripts) {
     mainClassName = 'com.github.cgund98.messenger.service.UsersServer'
@@ -89,7 +89,7 @@ task usersServer(type: CreateStartScripts) {
 }
 
 applicationDistribution.into('bin') {
-//    from(serversServer)
+    from(serversServer)
     from(usersServer)
     fileMode = 0755
 }

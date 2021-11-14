@@ -30,9 +30,9 @@ public class UserRepository {
     logger.info("Creating users table in PostgreSQL if it does not currently exist...");
     Statement stmt = conn.createStatement();
     String sql =
-        "CREATE TABLE IF NOT EXISTS users(\n"
-            + "id SERIAL PRIMARY KEY,\n"
-            + "username VARCHAR NOT NULL,\n"
+        "CREATE TABLE IF NOT EXISTS users("
+            + "user_id SERIAL PRIMARY KEY,"
+            + "username VARCHAR NOT NULL,"
             + "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());";
     stmt.execute(sql);
   }
@@ -45,7 +45,7 @@ public class UserRepository {
    */
   public UserEntity create(String username) throws SQLException {
     // Prepare query
-    String sql = "INSERT INTO users (username) VALUES (?) RETURNING id, username, created_at";
+    String sql = "INSERT INTO users (username) VALUES (?) RETURNING user_id, username, created_at";
     PreparedStatement stmt = conn.prepareStatement(sql);
     stmt.setString(1, username);
 
@@ -57,7 +57,7 @@ public class UserRepository {
       throw new SQLException("no returned result");
     }
 
-    return UserEntity.newBuilder(result.getInt("id"))
+    return UserEntity.newBuilder(result.getInt("user_id"))
         .setUsername(result.getString("username"))
         .setCreatedAt(result.getTimestamp("created_at"))
         .build();
@@ -73,7 +73,7 @@ public class UserRepository {
    */
   public UserEntity getById(Integer id) throws NotFoundException, SQLException {
     // Prepare query
-    String sql = "SELECT id, username, created_at FROM users WHERE id = ?";
+    String sql = "SELECT user_id, username, created_at FROM users WHERE user_id = ?";
     PreparedStatement stmt = conn.prepareStatement(sql);
     stmt.setInt(1, id);
 
@@ -85,7 +85,7 @@ public class UserRepository {
       throw new NotFoundException("no returned result");
     }
 
-    return UserEntity.newBuilder(result.getInt("id"))
+    return UserEntity.newBuilder(result.getInt("user_id"))
         .setUsername(result.getString("username"))
         .setCreatedAt(result.getTimestamp("created_at"))
         .build();
@@ -99,7 +99,7 @@ public class UserRepository {
    */
   public List<UserEntity> getAll() throws SQLException {
     // Prepare query
-    String sql = "SELECT id, username, created_at FROM users";
+    String sql = "SELECT user_id, username, created_at FROM users";
     Statement stmt = conn.createStatement();
 
     // Execute query
@@ -110,7 +110,7 @@ public class UserRepository {
     while (result.next()) {
       // Read query results into UserEntity
       UserEntity user =
-          UserEntity.newBuilder(result.getInt("id"))
+          UserEntity.newBuilder(result.getInt("user_id"))
               .setUsername(result.getString("username"))
               .setCreatedAt(result.getTimestamp("created_at"))
               .build();
