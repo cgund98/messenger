@@ -8,9 +8,7 @@ import com.github.cgund98.messenger.entities.ServerEntity;
 import com.github.cgund98.messenger.entities.UserEntity;
 import com.github.cgund98.messenger.mapper.ServerMapper;
 import com.github.cgund98.messenger.mapper.UserMapper;
-import com.github.cgund98.messenger.proto.servers.CreateServerRequest;
-import com.github.cgund98.messenger.proto.servers.MessageServer;
-import com.github.cgund98.messenger.proto.servers.ServersSvcGrpc;
+import com.github.cgund98.messenger.proto.servers.*;
 import com.github.cgund98.messenger.proto.users.GetUserRequest;
 import com.github.cgund98.messenger.proto.users.User;
 import com.github.cgund98.messenger.proto.users.UsersSvcGrpc;
@@ -65,6 +63,7 @@ public class ServersServer {
     }
 
     // Instantiate users gRPC client
+    // TODO: read configuration from environment
     String target = "localhost:8000";
     logger.info(String.format("Will forward users service requests to %s...", target));
     ManagedChannel channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
@@ -172,7 +171,6 @@ public class ServersServer {
     @Override
     public void createServer(
         CreateServerRequest req, StreamObserver<MessageServer> responseObserver) {
-
       UserEntity user;
       ServerEntity server;
       try {
@@ -195,7 +193,96 @@ public class ServersServer {
 
       } catch (Exception ex) {
         // Unknown error
-        ex.printStackTrace();
+        logger.severe(ex.getMessage());
+        Status status = Status.newBuilder().setCode(Code.INTERNAL.getNumber()).build();
+        responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+        return;
+      }
+
+      // Return response
+      MessageServer response = ServerMapper.entityToProto(server);
+
+      responseObserver.onNext(response);
+      responseObserver.onCompleted();
+    }
+
+    /**
+     * gRPC endpoint for fetching a messaging server by its ID
+     *
+     * @param req - request body
+     * @param responseObserver - response payload
+     */
+    @Override
+    public void getServer(GetServerRequest req, StreamObserver<MessageServer> responseObserver) {
+      ServerEntity server;
+      try {
+        // Parse and fetch user from JWT
+        UserEntity user = fetchUserFromToken(req.getToken());
+
+        // Create server
+        server = serverRepository.getById(req.getId());
+
+        // Check that user has proper authorization
+        if (!authorizer.authorize(user, "read", server)) {
+          Status status =
+              Status.newBuilder()
+                  .setCode(Code.PERMISSION_DENIED.getNumber())
+                  .setMessage(
+                      String.format("User not permitted to read server with ID `%d`", req.getId()))
+                  .build();
+          responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+          return;
+        }
+
+      } catch (Exception ex) {
+        // Unknown error
+        logger.severe(ex.getMessage());
+        Status status = Status.newBuilder().setCode(Code.INTERNAL.getNumber()).build();
+        responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+        return;
+      }
+
+      // Return response
+      MessageServer response = ServerMapper.entityToProto(server);
+
+      responseObserver.onNext(response);
+      responseObserver.onCompleted();
+    }
+
+    @Override
+    public void updateServer(
+        UpdateServerRequest req, StreamObserver<MessageServer> responseObserver) {
+      ServerEntity server;
+      try {
+        // Parse and fetch user from JWT
+        UserEntity user = fetchUserFromToken(req.getToken());
+
+        // Get ID
+        server = serverRepository.getById(req.getId());
+
+        // Update server name
+        if (!req.getName().equals("")) {
+          server.setName(req.getName());
+        }
+
+        // Check that user has proper authorization
+        if (!authorizer.authorize(user, "update", server)) {
+          Status status =
+              Status.newBuilder()
+                  .setCode(Code.PERMISSION_DENIED.getNumber())
+                  .setMessage(
+                      String.format(
+                          "User not permitted to update server with ID `%d`", req.getId()))
+                  .build();
+          responseObserver.onError(StatusProto.toStatusRuntimeException(status));
+          return;
+        }
+
+        // Persist changes
+        server = serverRepository.save(server);
+
+      } catch (Exception ex) {
+        // Unknown error
         logger.severe(ex.getMessage());
         Status status = Status.newBuilder().setCode(Code.INTERNAL.getNumber()).build();
         responseObserver.onError(StatusProto.toStatusRuntimeException(status));
